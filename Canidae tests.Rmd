@@ -1,0 +1,142 @@
+---
+title: "Canidae tests"
+author: "D. Rex Mitchell"
+date: "2023-02-14"
+output: html_document
+---
+
+################################################################################
+Import packages
+```{r}
+library(geomorph)
+library(landvR)
+library(ape)
+library(phytools)
+```
+
+Code for color scheme function
+```{r}
+map2color <- function(x, pal, limits = range(x)){
+  pal[findInterval(x, seq(limits[1], limits[2], length.out = length(pal) + 1), 
+                   all.inside=TRUE)]
+}
+```
+
+Import chosen taxon .rda file
+```{r}
+load("Canidae.rda")
+```
+
+Perform Procrustes superimposition of shape data, extract shape
+```{r}
+gpa <- gpagen(data)
+shape <- gpa$coords
+```
+
+Obtain centroid size scaling index for the taxon (largest/smallest)
+```{r}
+size_scale <- range(size)[2]/range(size)[1]; size_scale
+```
+Plot tree with size
+```{r}
+obj <- contMap(tree, size, legend=FALSE)
+plot(obj)
+map2 <- setMap(obj, c("blue", "green","yellow","orange","red"))
+plot(map2, mar=c(5.1,0.2,0.2,0.2), legend=20, leg.txt="cranial centroid size")
+```
+
+#### Vulpes branch ###
+```{r}
+datavul <- data[,,c(18:19,21:30)] # n = 12
+dimnames(datavul)[[3]]
+gpavul <- gpagen(datavul)
+sizevul <- size[c(18:19,21:30)]
+```
+
+```{r}
+size_scale <- range(sizevul)[2]/range(sizevul)[1]; size_scale # 15.37666 - 29.04415 = 1.889
+```
+
+Test for allometry in Vulpes clade.
+```{r}
+allom <- procD.lm(gpavul$coords~log(sizevul), iter=999); summary(allom)
+allom_plot <- plot(allom, type = "regression", predictor = log(sizevul), 
+                   reg.type = "RegScore", pch = 22, bg="grey", 
+                   xlab = "log(centroid size)", ylab = "Regression score", cex=2)
+### Allometry significant (Rsq=0.220, F=2.814, p=0.044)
+```
+Predict allometric shape variation for the Vulpes clade
+```{r}
+preds <- shape.predictor(allom$GM$fitted, x = allom_plot$PredLine, 
+                         predmin = min(allom_plot$PredLine), 
+                         predmax = max(allom_plot$PredLine))
+differences <- coordinates.difference(coordinates = preds$predmax,
+                                      reference = preds$predmin, type = "spherical")
+procrustes.var.plot(preds$predmax, preds$predmin, col = heat.colors, col.val = differences[[1]][1:30], magnitude = 1, pt.size = 3)
+### larger species have a more narrow cranium and slight premaxillae projection
+```
+
+# Canis branch
+```{r}
+datacan <- data[,,c(2:10,20,17)] # n = 11
+gpacan <- gpagen(datacan)
+sizecan <- size[c(2:10,20,17)]
+```
+
+```{r}
+size_scale <- range(sizecan)[2]/range(sizecan)[1]; size_scale # 1.755
+```
+Test for allometry in the Canis clade
+```{r}
+allom <- procD.lm(gpacan$coords~log(sizecan), iter=999); summary(allom)
+### Allometry not significant (Rsq=0.159, F=1.696, p=0.16)
+```
+
+Plot PCA to explore relationships
+```{r}
+PCA <- gm.prcomp(gpacan$coords)
+cont <- colorRampPalette(c("hotpink","darkblue"), interpolate = "linear")
+colage <- cont(15)
+colmap <- map2color(x=size, pal=colage, limits=range(size))
+plot(PCA$x[,2]~PCA$x[,1], pch=21, cex=size/20, bg=colmap)
+text(PCA$x[,1],PCA$x[,2], labels = dimnames(gpacan$coords)[[3]])
+# PC1 defines facial gracility and separates small prey specialists from large prey specialists.Canis simensis, a small prey speicialist, has the leanest  cranium.
+```
+Examine PC1 shape variation. 
+```{r}
+differences <- coordinates.difference(coordinates = PCA$shapes$shapes.comp1$max,
+                                      reference = PCA$shapes$shapes.comp1$min, type = "spherical")
+procrustes.var.plot(PCA$shapes$shapes.comp1$min, PCA$shapes$shapes.comp1$max, col = heat.colors, col.val = differences[[1]][1:dim(gpacan$coords)[1]], magnitude = 1, pt.size = 2)
+# PC1 represents cranial width
+```
+
+Vulpes branch + large prey specialists
+```{r}
+datavul2 <- data[,,c(9,17:20,21:30)] # n = 15
+gpa <- gpagen(datavul2)
+sizevul2 <- size[c(9,17:20,21:30)]
+```
+
+```{r}
+size_scale <- range(sizevul2)[2]/range(sizevul2)[1]; size_scale # 2.308
+```
+
+```{r}
+allom <- procD.lm(gpa$coords~log(sizevul2), iter=999); summary(allom)
+allom_plot <- plot(allom, type = "regression", predictor = log(sizevul2), 
+                   reg.type = "RegScore", pch = 22, bg="grey", 
+                   xlab = "log(centroid size)", ylab = "Regression score", cex=2)
+### Allometry significant (Rsq = 0.175, F=2.751, p=0.044)
+```
+
+# Allometry predict shape
+```{r}
+preds <- shape.predictor(allom$GM$fitted, x = allom_plot$PredLine, 
+                         predmin = min(allom_plot$PredLine), 
+                         predmax = max(allom_plot$PredLine))
+differences <- coordinates.difference(coordinates = preds$predmax,
+                                      reference = preds$predmin, type = "spherical")
+procrustes.var.plot(preds$predmax, preds$predmin, col = heat.colors, col.val = differences[[1]][1:30], magnitude = 1, pt.size = 2)
+# Allometric prediction for more stout crania with increased size
+```
+

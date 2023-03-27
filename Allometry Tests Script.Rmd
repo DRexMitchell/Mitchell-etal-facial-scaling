@@ -1,0 +1,149 @@
+---
+title: "Allometry tests"
+author: "D. Rex Mitchell"
+date: "2023-02-06"
+output: html_document
+---
+
+##### WELCOME TO REX'S SCRIPT FOR CRANIAL EVOLUTIONARY ALLOMETRY TESTS! ########
+
+Just some minor housekeeping :)
+
+- All family .rda files contain shape data, phylogenetic tree, and centroid sizes.
+
+- Stored centroid sizes must be used instead of gpa$Csize because they were originally published in different formats and have been standardised to conform to the code below.
+
+- Some lines below will need changing depending on the taxon (e.g., predline reversals, cex sizes in plots, etc). The current script is set to the Dasyuridae. But the Bovidae, for example, will require changing the cex sizes of plots because they can be much larger.
+
+
+
+################################################################################
+Import packages
+```{r}
+library(geomorph)
+library(landvR)
+library(ape)
+library(phytools)
+```
+
+Code for color scheme function
+```{r}
+map2color <- function(x, pal, limits = range(x)){
+  pal[findInterval(x, seq(limits[1], limits[2], length.out = length(pal) + 1), 
+                   all.inside=TRUE)]
+}
+```
+
+Import chosen taxon .rda file
+```{r}
+load("NAME OF TAXON.rda")
+```
+
+Perform Procrustes superimposition of shape data, extract shape
+```{r}
+gpa <- gpagen(data)
+shape <- gpa$coords
+```
+
+Obtain scale of centroid sizes for the taxon (largest/smallest)
+```{r}
+size_scale <- range(size)[2]/range(size)[1]; size_scale
+```
+
+Test for allometry using OLS. NOTE: sometimes need to reverse the y axis of line 52
+```{r}
+allom <- procD.lm(shape~log(size), iter=999); summary(allom)
+allom_plot <- plot(allom, type = "regression", predictor = log(size), 
+                   reg.type = "RegScore", pch = 22, bg="grey", 
+                   xlab = "log(centroid size)", ylab = "Regression score", cex=2)
+points(x=log(size), y=allom_plot$PredLine, pch=19, cex=1)
+```
+
+Predict allometric shape changes. NOTE: if line 52 was needed reversing, so will the "min" and "max" commands of lines 58 and 59.
+```{r}
+preds <- shape.predictor(allom$GM$fitted, x = allom_plot$PredLine, 
+                         predmin = min(allom_plot$PredLine), 
+                         predmax = max(allom_plot$PredLine))
+differences <- coordinates.difference(coordinates = preds$predmax,
+                                      reference = preds$predmin, type = "spherical")
+  procrustes.var.plot(preds$predmin, preds$predmax, col = heat.colors, col.val = differences[[1]][1:dim(gpa$coords)[1]], magnitude = 1, pt.size = 1)
+```
+
+Generate colour palette for visualising size. Choose any two colours
+```{r}
+cont <- colorRampPalette(c("hotpink","darkblue"), interpolate = "linear")
+colage <- cont(15)
+colmap <- map2color(x=size, pal=colage, limits=range(size))
+```
+
+Perform PCA on shape data and test the correlations of first three PCs with size
+```{r}
+PCA <- gm.prcomp(gpa$coords)
+
+PC1cor <- lm(PCA$x[,1]~log(size)); print(summary(PC1cor))
+PC2cor <- lm(PCA$x[,2]~log(size)); print(summary(PC2cor))
+PC3cor <- lm(PCA$x[,3]~log(size)); print(summary(PC3cor))
+```
+
+Plot PCA - NOTE: adjust cex division to preference
+```{r}
+plot(PCA$x[,2]~PCA$x[,1], pch=21, cex=size/30, bg=colmap)
+```
+
+Examine shape changes along the three PCs. Might need to switch max and min for the reference and target in line 98.
+```{r}
+differences <- coordinates.difference(coordinates = PCA$shapes$shapes.comp1$max,
+                                      reference = PCA$shapes$shapes.comp1$min, type = "spherical")
+procrustes.var.plot(PCA$shapes$shapes.comp1$min, PCA$shapes$shapes.comp1$max, col = heat.colors, col.val = differences[[1]][1:dim(gpa$coords)[1]], magnitude = 1, pt.size = 1)
+```
+
+```{r}
+differences <- coordinates.difference(coordinates = PCA$shapes$shapes.comp2$max,
+                                      reference = PCA$shapes$shapes.comp2$min, type = "spherical")
+procrustes.var.plot(PCA$shapes$shapes.comp2$min, PCA$shapes$shapes.comp2$max, col = heat.colors, col.val = differences[[1]][1:dim(gpa$coords)[1]], magnitude = 1, pt.size = 1)
+```
+
+```{r}
+differences <- coordinates.difference(coordinates = PCA$shapes$shapes.comp3$max,
+                                      reference = PCA$shapes$shapes.comp3$min, type = "spherical")
+procrustes.var.plot(PCA$shapes$shapes.comp3$min, PCA$shapes$shapes.comp3$max, col = heat.colors, col.val = differences[[1]][1:dim(gpa$coords)[1]], magnitude = 1, pt.size = 1)
+```
+
+Perform phylogenetic generalised least squares regression on shape data
+```{r}
+phy <- procD.pgls(gpa$coords~log(size), tree, iter=999);summary(phy)
+phy_plot <- plot(phy, type = "regression", predictor = log(size), 
+                 reg.type = "RegScore", pch = 21, bg="grey",
+                 xlab = "log(centroid size)", ylab = "Regression score", cex=2)
+```
+
+Predict alometric shape changes after phylogenetic correction
+```{r}
+preds <- shape.predictor(phy$GM$pgls.fitted, x=phy_plot$PredLine,
+                         predmin = min(phy_plot$PredLine), 
+                         predmax = max(phy_plot$PredLine))
+differences <- coordinates.difference(coordinates = preds$predmax,
+                                      reference = preds$predmin, type = "spherical")
+procrustes.var.plot(preds$predmin, preds$predmax, col = heat.colors, col.val = differences[[1]][1:dim(gpa$coords)[1]], magnitude = 1, pt.size = 1)
+```
+
+Test for a phylogenetic signal of cranial size
+```{r}
+ps <- physignal(size, tree, iter=999); ps
+```
+
+Generate phylogenetic trees calibrated to size and PC1. NOTE: change PC, plot dimensions, or legend scales if desired or required
+```{r}
+size_phy <- contMap(tree, size, legend=FALSE)
+plot(size_phy)
+### Switch color scheme, if preferred
+size_phy2 <- setMap(size_phy, c("blue", "green","yellow","orange","red"))
+plot(size_phy2, mar=c(5.1,0.2,0.2,0.2), legend=20, leg.txt="log(cranial centroid size)")
+```
+
+```{r}
+PC_phy <- contMap(tree, PCA$x[,1], legend=FALSE, direction="leftwards")
+plot(PC_phy)
+PC_phy2 <- setMap(PC_phy, c("blue", "green","yellow","orange","red"))
+plot(PC_phy2, mar=c(5.1,0.2,0.2,0.2), legend=20, leg.txt="PC1", direction="leftwards")
+```
