@@ -1,0 +1,17 @@
+Dasyuridae specimen list:
+Antechinus_minimus_SAMA_m26603
+Antechinus_flavipes_QM_j1937
+Antechinus_melanurus_QM_j1093  
+Phascogale_calura_SAMA_m3151
+Phascogale_tapoatafa_SAMA_m10899
+Myoictis_melas_WAM_m2809    
+Dasyuroides_byrnei_AMNH_257601
+Dasyurus_hallucatus_SAMA_m7230
+Dasyurus_geoffroii_WAM_M1106
+Dasyurus_albopunctatus_WAM_m2842
+Dasyurus_viverrinus_SAMA_m7220
+Dasyurus_maculatus_SAMA_m201     
+Sarcophilus_harrisii_WAM_m6556
+Sminthopsis_murina_AMNH_196832
+Sminthopsis_crassicaudata_SAMA_m5680
+Planigale_ingrami_QM_j7656
